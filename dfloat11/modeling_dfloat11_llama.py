@@ -355,7 +355,7 @@ class DFloat11ModelForCausalLM:
             )
             del decoder_layer
 
-        # Estimate and print model size (non-DFloat11 parameters only)
+        # Compute and print model size
         model_bytes = 0
         for param in model.state_dict().values():
             if param.dtype in [torch.uint8, torch.int8]:

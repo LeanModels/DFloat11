@@ -26,7 +26,44 @@ pip install dfloat11[cuda12]
 
 📂 Official Code Repository: [https://github.com/LeanModels/DFloat11](https://github.com/LeanModels/DFloat11)
 
-## 🧪 Quickstart
+## 🚀 Quick Start
+
+Run inference with a DFloat11-compressed LLM:
+
+### Example Command
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python inference.py \
+  --model_name_or_path meta-llama/Llama-3.1-8B-Instruct \
+  --df11_name_or_path DFloat11/Llama-3.1-8B-Instruct-DF11 \
+  --prompt "Question: What is a binary tree and its applications? Answer:" \
+  --num_tokens 512 \
+  --batch_size 1
+```
+
+> 💡 **Tip**: If you specify multiple CUDA devices (e.g., `CUDA_VISIBLE_DEVICES=0,1`), the model will be automatically distributed across them using `device_map="auto"`.
+
+### Arguments
+
+- `--model_name_or_path`: HuggingFace model name or local path (e.g., `meta-llama/Llama-3.1-8B-Instruct`)
+- `--df11_name_or_path`: Path or repo for the corresponding DFloat11-compressed model (e.g., `DFloat11/Llama-3.1-8B-Instruct-DF11`)
+- `--use_bf16`: *(Optional)* Load the original BFloat16 model instead of the compressed one
+- `--prompt`: Input prompt string for text generation
+- `--num_tokens`: Number of new tokens to generate per sample
+- `--batch_size`: Number of prompts to process in parallel
+- `--seed`: *(Optional)* Random seed for reproducible results
+
+### Output
+
+The script prints:
+- Generated responses
+- Total decoding latency
+- Tokens per second (throughput)
+- GPU memory usage (allocated and peak)
+
+### Model Usage
+
+To use a DFloat11-compressed LLM like a standard HuggingFace model:
 
 ```python
 from dfloat11 import DFloat11ModelForCausalLM
@@ -34,11 +71,17 @@ from dfloat11 import DFloat11ModelForCausalLM
 model = DFloat11ModelForCausalLM.from_pretrained(
     "<huggingface-model-name>",
     "<path-to-dfloat11-model>",
-    device_map='auto',
+    device_map="auto",
 )
 
-# model is ready to use like a regular huggingface model
+# The model behaves like a regular HuggingFace CausalLM
 ```
+
+## 🧠 Contributions
+
+This work is brought to you by the team at Rice University and [xMAD.ai](https://xmad.ai/).
+
+The GPU kernel was designed and implemented by [Tianyi Zhang](https://github.com/tonyzhang617).
 
 ## 📚 Citation
 
