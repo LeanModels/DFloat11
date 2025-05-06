@@ -7,6 +7,9 @@
 
 ## 📰 News
 
+- [05/06/2025] **DFloat11 now supports [`FLUX.1-dev`](https://huggingface.co/black-forest-labs/FLUX.1-dev)**
+  * 🖼️ Generate stunning text-to-image results on GPUs with **less than 24GB VRAM** --- no quality lost!
+  * 📂 Get started here: [examples/flux.1](https://github.com/LeanModels/DFloat11/tree/master/examples/flux.1).
 - [05/05/2025] The `dfloat11` pip package has been upgraded to `v0.2.0`! Run `pip install -U dfloat11[cuda12]` to upgrade to the latest version. We have made the following important changes:
   * We added support for Qwen 3, Gemma 3, and Phi 4!
   * The GPU decompression kernel is now 20-40% faster! We achieved it by improving thread occupancy and implementing tons of optimizations.
@@ -100,6 +103,7 @@ The script prints:
 
 | Model | DFloat11 Link |
 |-------|---------------|
+| FLUX.1-dev | [DFloat11/FLUX.1-dev-DF11](https://huggingface.co/DFloat11/FLUX.1-dev-DF11) |
 | Qwen 3 32B | [DFloat11/Qwen3-32B-DF11](https://huggingface.co/DFloat11/Qwen3-32B-DF11) |
 | Qwen 3 14B | [DFloat11/Qwen3-14B-DF11](https://huggingface.co/DFloat11/Qwen3-14B-DF11) |
 | Qwen 3 8B | [DFloat11/Qwen3-8B-DF11](https://huggingface.co/DFloat11/Qwen3-8B-DF11) |
