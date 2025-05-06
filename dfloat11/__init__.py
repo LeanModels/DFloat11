@@ -1,1 +1,1 @@
-from .modeling_dfloat11_llama import DFloat11ModelForCausalLM
+from .dfloat11 import DFloat11Model

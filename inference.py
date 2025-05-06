@@ -1,28 +1,20 @@
-import os
 import time
 from argparse import ArgumentParser
 
 import torch
-from huggingface_hub import snapshot_download
-from dfloat11 import DFloat11ModelForCausalLM
+from dfloat11 import DFloat11Model
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = ArgumentParser()
-    parser.add_argument('--model_name_or_path', type=str, default='meta-llama/Llama-3.1-8B-Instruct')
-    parser.add_argument('--df11_name_or_path', type=str, default='DFloat11/Llama-3.1-8B-Instruct-DF11')
-    parser.add_argument('--use_bf16', action='store_true')
+    parser.add_argument('--model_name_or_path', type=str, default='DFloat11/Llama-3.1-8B-Instruct-DF11')
+    parser.add_argument('--bf16', action='store_true', help='Turn on this flag if the model is in BFloat16 format.')
     parser.add_argument('--prompt', type=str, default='Question: What is a binary tree and its applications? Answer:')
     parser.add_argument('--num_tokens', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
-
-    # Download DFloat11 model snapshot if not already downloaded
-    dfloat11_path = args.df11_name_or_path.replace('/', '__')
-    if not os.path.exists(dfloat11_path):
-        snapshot_download(args.df11_name_or_path, local_dir=dfloat11_path)
 
     # Check for FlashAttention 2 availability
     try:
@@ -31,11 +23,9 @@ if __name__ == "__main__":
     except ImportError:
         attn_implementation = None
 
-    # Load model: use DFloat11 if not using BF16
-    if not args.use_bf16:
-        model = DFloat11ModelForCausalLM.from_pretrained(
+    if not args.bf16:
+        model = DFloat11Model.from_pretrained(
             args.model_name_or_path,
-            dfloat11_path=dfloat11_path,
             attn_implementation=attn_implementation,
             device_map="auto",
         )
@@ -59,7 +49,7 @@ if __name__ == "__main__":
         outputs = model(**inputs, use_cache=False)
     del inputs
     del outputs
-    ##################################################################
+    ###################################################################
 
     # Set random seed for deterministic sampling
     set_seed(args.seed)
@@ -88,8 +78,14 @@ if __name__ == "__main__":
     latency = end_time - start_time
 
     # GPU memory tracking
-    allocated = torch.cuda.memory_allocated() / 1e6  # MB
-    peak_allocated = torch.cuda.max_memory_allocated() / 1e6  # MB
+    allocated = 0
+    peak_allocated = 0
+    for device_id in range(torch.cuda.device_count()):
+        allocated += torch.cuda.memory_allocated(device_id)
+        peak_allocated += torch.cuda.max_memory_allocated(device_id)
+
+    allocated /= 1e6  # Convert to MB
+    peak_allocated /= 1e6  # Convert to MB
 
     # Print generated results and generation speed
     print(f"Generated Texts:")
