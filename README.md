@@ -7,7 +7,7 @@
 
 ## 📰 News
 
-- [05/05/2025] The `dfloat11` pip package has been upgraded to `v0.2.0`! We have made the following important changes:
+- [05/05/2025] The `dfloat11` pip package has been upgraded to `v0.2.0`! Run `pip install -U dfloat11[cuda12]` to upgrade to the latest version. We have made the following important changes:
   * We added support for Qwen 3, Gemma 3, and Phi 4!
   * The GPU decompression kernel is now 20-40% faster! We achieved it by improving thread occupancy and implementing tons of optimizations.
   * The DFloat11 models are now stored in safetensors format for better safety and loading performance.
@@ -18,9 +18,9 @@
 Requires a CUDA-compatible GPU and [PyTorch](https://pytorch.org/get-started/locally/) installed.
 
 ```bash
-pip install dfloat11[cuda12]
+pip install -U dfloat11[cuda12]
 # or if you have CUDA version 11:
-# pip install dfloat11[cuda11]
+# pip install -U dfloat11[cuda11]
 ```
 
 ## 🔍 How It Works
@@ -37,7 +37,7 @@ Key benefits:
 
 ## 🚀 Quick Start
 
-1. Install the `dfloat11` pip package. See [Installation](#📦-installation).
+1. Install the `dfloat11` pip package. See [Installation](#-installation).
 2. Run the following code in Python, which automatically downloads the DFloat11 `Qwen3-8B` model and generates a response.
   ```python
   import torch
@@ -63,7 +63,7 @@ Key benefits:
 
   print(tokenizer.batch_decode(output, skip_special_tokens=True))
   ```
-3. Replace the `model_id` in the script above with any pre-compressed model in the [Model Hub](#📚-model-hub).
+3. Replace the `model_id` in the script above with any pre-compressed model in the [Model Hub](#-model-hub).
 
 ## 🏎️ Benchmarking Performance
 
@@ -81,7 +81,7 @@ CUDA_VISIBLE_DEVICES=0 python inference.py \
 
 ### Arguments
 
-- `--model_name_or_path`: HuggingFace name or local path of the DFloat11 model (e.g., `DFloat11/Qwen3-8B-DF11`). See the [Model Hub](#📚-model-hub) section for a list of available DFloat11 models.
+- `--model_name_or_path`: HuggingFace name or local path of the DFloat11 model (e.g., `DFloat11/Qwen3-8B-DF11`). See the [Model Hub](#-model-hub) section for a list of available DFloat11 models.
 - `--bf16`: *(Optional)* Turn on this flag when passing a BFloat16 model to `--model_name_or_path`
 - `--prompt`: Input prompt string for text generation
 - `--num_tokens`: Number of new tokens to generate per sample
@@ -108,9 +108,30 @@ The script prints:
 | Gemma 3 27B Instruct | [DFloat11/gemma-3-27b-it-DF11](https://huggingface.co/DFloat11/gemma-3-27b-it-DF11) |
 | Gemma 3 12B Instruct | [DFloat11/gemma-3-12b-it-DF11](https://huggingface.co/DFloat11/gemma-3-12b-it-DF11) |
 | Gemma 3 4B Instruct  | [DFloat11/gemma-3-4b-it-DF11](https://huggingface.co/DFloat11/gemma-3-4b-it-DF11) |
+| Llama 3.1 8B Instruct | [DFloat11/Llama-3.1-8B-Instruct-DF11](https://huggingface.co/DFloat11/Llama-3.1-8B-Instruct-DF11) |
 | DeepSeek R1 Distill Qwen 32B | [DFloat11/DeepSeek-R1-Distill-Qwen-32B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Qwen-32B-DF11) |
 | DeepSeek R1 Distill Qwen 14B | [DFloat11/DeepSeek-R1-Distill-Qwen-14B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Qwen-14B-DF11) |
+| DeepSeek R1 Distill Qwen 7B  | [DFloat11/DeepSeek-R1-Distill-Qwen-7B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Qwen-7B-DF11) |
+| DeepSeek R1 Distill Llama 8B | [DFloat11/DeepSeek-R1-Distill-Llama-8B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Llama-8B-DF11) |
 | [Discover more models on our HF page!](https://huggingface.co/DFloat11) | ... |
+
+### How to Use a DFloat11 Model
+
+1. Download a model using the HuggingFace command line tool:
+  ```bash
+  huggingface-cli download \
+    DFloat11/Llama-3.1-8B-Instruct-DF11 \     # DFloat11 model name
+    --local-dir ./Llama-3.1-8B-Instruct-DF11  # local path to download the DFloat11 model
+  ```
+2. Run the following in Python to load the model and tokenizer:
+  ```python
+  from dfloat11 import DFloat11Model
+  from transformers import AutoTokenizer
+
+  model_path = "./Llama-3.1-8B-Instruct-DF11"
+  model = DFloat11Model.from_pretrained(model_path, device_map="auto")
+  tokenizer = AutoTokenizer.from_pretrained(model_path)
+  ```
 
 ## 🔗 Links
 
