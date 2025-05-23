@@ -7,6 +7,9 @@
 
 ## 📰 News
 
+- [05/23/2025] **Wan2.1** support is now live! [`DFloat11/Wan2.1-T2V-14B-Diffusers-DF11`](https://huggingface.co/DFloat11/Wan2.1-T2V-14B-Diffusers-DF11)
+  * Text-to-video generation with DFloat11 *Wan2.1 14B* using only 24GB VRAM!
+  * Get started here: [examples/wan2.1](https://github.com/LeanModels/DFloat11/tree/master/examples/wan2.1).
 - [05/06/2025] **DFloat11 now supports [`FLUX.1-dev`](https://huggingface.co/black-forest-labs/FLUX.1-dev)**
   * 🖼️ Generate stunning text-to-image results on GPUs with **less than 24GB VRAM** --- no quality lost!
   * 📂 Get started here: [examples/flux.1](https://github.com/LeanModels/DFloat11/tree/master/examples/flux.1).
@@ -103,7 +106,8 @@ The script prints:
 
 | Model | DFloat11 Link |
 |-------|---------------|
-| FLUX.1-dev | [DFloat11/FLUX.1-dev-DF11](https://huggingface.co/DFloat11/FLUX.1-dev-DF11) |
+| Wan2.1 T2V 14B (see [examples/wan2.1](https://github.com/LeanModels/DFloat11/tree/master/examples/wan2.1)) | [DFloat11/Wan2.1-T2V-14B-Diffusers-DF11](https://huggingface.co/DFloat11/Wan2.1-T2V-14B-Diffusers-DF11) |
+| FLUX.1 dev (see [examples/flux.1](https://github.com/LeanModels/DFloat11/tree/master/examples/flux.1)) | [DFloat11/FLUX.1-dev-DF11](https://huggingface.co/DFloat11/FLUX.1-dev-DF11) |
 | Qwen 3 32B | [DFloat11/Qwen3-32B-DF11](https://huggingface.co/DFloat11/Qwen3-32B-DF11) |
 | Qwen 3 14B | [DFloat11/Qwen3-14B-DF11](https://huggingface.co/DFloat11/Qwen3-14B-DF11) |
 | Qwen 3 8B | [DFloat11/Qwen3-8B-DF11](https://huggingface.co/DFloat11/Qwen3-8B-DF11) |
