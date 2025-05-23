@@ -12,14 +12,13 @@ DFloat11 enables efficient video generation with Wan2.1-14B (28GB) **on a single
 | ---------------------------------- | ------------------------- | ------------------------- |
 | Model Size                         | 28.64 GB                  | 19.39 GB                  |
 | Peak GPU Memory<br>(2s 480p Video) | 30.79 GB                  | 22.22 GB                  |
-| Generation Time<br>(2s 480p Video) | 339 seconds               | 348 seconds               |
+| Generation Time<br>(an A100 GPU)   | 339 seconds               | 348 seconds               |
 
 ---
 
 ## ✅ Requirements
 
 * CUDA-compatible GPU with **≥ 24GB VRAM**
-* [PyTorch](https://pytorch.org/get-started/locally/)
 * Install Wan2.1 and DFloat11 dependencies:
 
 ```bash
