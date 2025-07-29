@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='dfloat11',
-    version='0.2.0',
+    version='0.3.0',
     description='GPU inference for losslessly compressed (DFloat11) Large Language Models',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -17,7 +17,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'tqdm',
-        'transformers>=4.51.0',
+        'transformers',
         'accelerate',
         'safetensors',
     ],

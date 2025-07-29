@@ -2,11 +2,14 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/dfloat11.svg?color=blue)](https://pypi.org/project/dfloat11/)
 [![arXiv](https://img.shields.io/badge/arXiv-2504.11651-b31b1b.svg)](https://arxiv.org/abs/2504.11651)
+[![Hugging Face](https://img.shields.io/badge/Model-%F0%9F%A4%97-yellow.svg)](https://huggingface.co/DFloat11)
 
 **DFloat11** is a lossless compression framework that reduces the size of Large Language Models (LLMs) by approximately **30%** while preserving **bit-for-bit identical outputs** to the original model. It enables efficient GPU inference on resource-constrained hardware without sacrificing accuracy.
 
 ## 📰 News
-
+- [07/29/2025] Efficient CPU Offloading Now Supported!
+  * Our latest update enables highly memory-efficient inference by keeping only one transformer block in GPU memory at a time.
+  * To enable CPU offloading, simply set `cpu_offload=True` when calling `DFloat11Model.from_pretrained(...)`.
 - [05/23/2025] **Wan2.1** support is now live! [`DFloat11/Wan2.1-T2V-14B-Diffusers-DF11`](https://huggingface.co/DFloat11/Wan2.1-T2V-14B-Diffusers-DF11)
   * Text-to-video generation with DFloat11 *Wan2.1 14B* using only 24GB VRAM!
   * Get started here: [examples/wan2.1](https://github.com/LeanModels/DFloat11/tree/master/examples/wan2.1).
@@ -121,7 +124,7 @@ The script prints:
 | DeepSeek R1 Distill Qwen 14B | [DFloat11/DeepSeek-R1-Distill-Qwen-14B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Qwen-14B-DF11) |
 | DeepSeek R1 Distill Qwen 7B  | [DFloat11/DeepSeek-R1-Distill-Qwen-7B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Qwen-7B-DF11) |
 | DeepSeek R1 Distill Llama 8B | [DFloat11/DeepSeek-R1-Distill-Llama-8B-DF11](https://huggingface.co/DFloat11/DeepSeek-R1-Distill-Llama-8B-DF11) |
-| [Discover more models on our HF page!](https://huggingface.co/DFloat11) | ... |
+| ... | [Discover more models on our HF page!](https://huggingface.co/DFloat11) |
 
 ### How to Use a DFloat11 Model
 

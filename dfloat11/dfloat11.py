@@ -37,17 +37,22 @@ from transformers.modeling_utils import no_init_weights
 ptx_path = pkg_resources.resource_filename("dfloat11", "decode.ptx")
 _decode = cp.RawModule(path=ptx_path).get_function('decode')
 
+offloaded_tensor_names = (
+    'encoded_exponent', 'sign_mantissa'
+)
+
 
 class TensorManager:
     """
     Static utility class that manages tensor allocation and reuse
     to minimize memory allocation overhead during tensor reconstruction.
     """
-    # Static class variable to store tensors for each device
+    # Static class variables to store tensors
     _tensors = {}  # Maps device to tensor
+    _modules = {}  # Maps device to module
 
     @staticmethod
-    def get_tensor(device, n_elements):
+    def allocate_bfloat16(device, n_elements):
         """
         Get a bfloat16 tensor with at least n_elements on the specified device.
 
@@ -88,27 +93,28 @@ class TensorManager:
         
         return new_tensor
 
-    @staticmethod
-    def clear_device(device=None):
-        """
-        Clear tensors for a specific device or all devices if none specified.
-        
-        Args:
-            device: The device to clear tensors from, or None to clear all devices
-        """
-        if device is None:
-            # Clear all devices
-            TensorManager._tensors.clear()
-        else:
-            # Convert device to torch.device if it's a string
-            if isinstance(device, str):
-                device = torch.device(device)
-                
-            # Remove specific device
-            if device in TensorManager._tensors:
-                del TensorManager._tensors[device]
-                
-        torch.cuda.empty_cache()  # Ensure memory is freed
+    @classmethod
+    def onload(cls, module, device):
+        if device in cls._modules and cls._modules[device] != module:
+            module_to_clear = cls._modules[device]
+            for tensor_name in module_to_clear.offloaded_tensors.keys():
+                if hasattr(module_to_clear, tensor_name):
+                    tmp = getattr(module_to_clear, tensor_name)
+                    delattr(module_to_clear, tensor_name)
+                    del tmp
+
+            cls._modules[device] = None
+
+        should_sync = False
+        for tensor_name, tensor in module.offloaded_tensors.items():
+            if not hasattr(module, tensor_name) or getattr(module, tensor_name).device != device:
+                module.register_buffer(tensor_name, tensor.to(device, non_blocking=True))
+                should_sync = True
+
+        if should_sync:
+            torch.cuda.synchronize()
+
+        cls._modules[device] = module
 
 
 def get_hook(threads_per_block, bytes_per_thread):
@@ -128,14 +134,17 @@ def get_hook(threads_per_block, bytes_per_thread):
     threads_per_block = tuple(threads_per_block)
 
     def decode_hook(module, _):
+        device = module.luts.device
+        if hasattr(module, 'offloaded_tensors'):
+            TensorManager.onload(module, device)
+
         # Get dimensions for tensor reconstruction
         n_elements = module.sign_mantissa.numel()
         n_bytes = module.encoded_exponent.numel()
         n_luts = module.luts.shape[0]
 
         # Get output tensor for reconstructed weights
-        device = module.encoded_exponent.device
-        reconstructed = TensorManager.get_tensor(device, n_elements)
+        reconstructed = TensorManager.allocate_bfloat16(device, n_elements)
 
         # Configure CUDA grid dimensions for the kernel launch
         blocks_per_grid = (int(math.ceil(n_bytes / (threads_per_block[0] * bytes_per_thread))), )
@@ -170,7 +179,7 @@ def get_hook(threads_per_block, bytes_per_thread):
     return decode_hook
 
 
-def load_and_replace_tensors(model, directory_path, dfloat11_config):
+def load_and_replace_tensors(model, directory_path, dfloat11_config, cpu_offload=False, pin_memory=True):
     """
     Loads DFloat11 compressed weights from safetensors files and configures the model
     to use them with on-the-fly decompression.
@@ -189,7 +198,7 @@ def load_and_replace_tensors(model, directory_path, dfloat11_config):
     
     # Get all .safetensors files in the directory
     safetensors_files = [f for f in os.listdir(directory_path) if f.endswith('.safetensors')]
-    for file_name in tqdm(safetensors_files, desc='Loading DFloat11 safetensors'):
+    for file_name in tqdm(safetensors_files, desc=f'Loading DFloat11 safetensors{" (offloaded to CPU)" if cpu_offload else ""}'):
         file_path = os.path.join(directory_path, file_name)
         
         # Load the tensors from the file
@@ -231,7 +240,13 @@ def load_and_replace_tensors(model, directory_path, dfloat11_config):
                         setattr(module, 'split_positions', tensor_value.tolist())
                     else:
                         # Register the buffer to the found module
-                        module.register_buffer(parts[-1], tensor_value)
+                        if cpu_offload and parts[-1] in offloaded_tensor_names:
+                            if not hasattr(module, 'offloaded_tensors'):
+                                setattr(module, 'offloaded_tensors', {})
+
+                            module.offloaded_tensors[parts[-1]] = tensor_value.pin_memory() if pin_memory else tensor_value
+                        else:
+                            module.register_buffer(parts[-1], tensor_value)
 
                     # Set up decompression for encoded weights
                     if parts[-1] == 'encoded_exponent':
@@ -266,13 +281,11 @@ def load_and_replace_tensors(model, directory_path, dfloat11_config):
                                         module.weight_injection_modules.append(target)
                     elif parts[-1] == 'output_positions':
                         # Calculate required shared memory size for CUDA kernel
+                        output_positions_np = tensor_value.view(torch.uint32).numpy()
                         setattr(
                             module,
                             'shared_mem_size',
-                            threads_per_block[0] * 4 + 4 + (
-                                module.output_positions.view(torch.uint32).numpy()[1:] - \
-                                    module.output_positions.view(torch.uint32).numpy()[:-1]
-                            ).max().item() * 2
+                            threads_per_block[0] * 4 + 4 + (output_positions_np[1:] - output_positions_np[:-1]).max().item() * 2
                         )
     
     return model
@@ -317,6 +330,8 @@ class DFloat11Model:
         device_map: str = 'auto',
         max_memory: Optional[Dict[Union[int, str], Union[int, str]]] = None,
         bfloat16_model = None,
+        cpu_offload: bool = False,
+        pin_memory: bool = True,
         **kwargs,
     ):
         """
@@ -328,6 +343,8 @@ class DFloat11Model:
             device_map: Strategy for distributing model across devices
             max_memory: Maximum memory allocation per device
             bfloat16_model: Optional pre-initialized model to load weights into
+            cpu_offload: Enables CPU offloading; only keeps a single block of weights in GPU at once
+            pin_memory: Enables memory-pinning/page-locking when using CPU offloading
             **kwargs: Additional arguments passed to AutoModelForCausalLM.from_config
             
         Returns:
@@ -366,23 +383,15 @@ class DFloat11Model:
         dfloat11_config = config.dfloat11_config
 
         # Load compressed weights and configure decompression
-        load_and_replace_tensors(model, dfloat11_model_path, dfloat11_config)
+        load_and_replace_tensors(model, dfloat11_model_path, dfloat11_config, cpu_offload=cpu_offload)
 
-        # Calculate and report model size
-        model_bytes = 0
-        for param in model.state_dict().values():
-            if param.dtype in [torch.uint8, torch.int8]:
-                model_bytes += param.numel()
-            elif param.dtype in [torch.float16, torch.bfloat16, torch.int16, torch.uint16]:
-                model_bytes += param.numel() * 2
-            elif param.dtype in [torch.float32, torch.int32, torch.uint32]:
-                model_bytes += param.numel() * 4
-            elif param.dtype in [torch.float64, torch.int64, torch.uint64]:
-                model_bytes += param.numel() * 8
-            else:
-                print(f'Unrecognized parameter data type {param.dtype}.', file=stderr)
+        if not cpu_offload:
+            # Calculate and report model size
+            model_bytes = 0
+            for param in model.state_dict().values():
+                model_bytes += param.nbytes
 
-        print(f"Total model size: {model_bytes / 1e9:0.4f} GB", file=stderr)
+            print(f"Total model size: {model_bytes / 1e9:0.4f} GB", file=stderr)
 
         # Move model to specified device or distribute across multiple devices
         if device:
@@ -395,8 +404,8 @@ class DFloat11Model:
             device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=no_split_classes)
             model = dispatch_model(model, device_map)
 
-        # Warn if model is not fully on GPU
-        if any(param.device.type == 'cpu' for param in model.parameters()):
-            print("Warning: Some model layers are on CPU. For inference, ensure the model is fully loaded onto CUDA-compatible GPUs.", file=stderr)
+            # Warn if model is not fully on GPU
+            if any(param.device.type == 'cpu' for param in model.parameters()):
+                print("Warning: Some model layers are on CPU. For inference, ensure the model is fully loaded onto CUDA-compatible GPUs.", file=stderr)
 
         return model
