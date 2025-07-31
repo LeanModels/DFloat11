@@ -49,7 +49,6 @@ class TensorManager:
     """
     # Static class variables to store tensors
     _tensors = {}  # Maps device to tensor
-    _modules = {}  # Maps device to module
 
     @staticmethod
     def allocate_bfloat16(device, n_elements):
@@ -93,29 +92,6 @@ class TensorManager:
         
         return new_tensor
 
-    @classmethod
-    def onload(cls, module, device):
-        if device in cls._modules and cls._modules[device] != module:
-            module_to_clear = cls._modules[device]
-            for tensor_name in module_to_clear.offloaded_tensors.keys():
-                if hasattr(module_to_clear, tensor_name):
-                    tmp = getattr(module_to_clear, tensor_name)
-                    delattr(module_to_clear, tensor_name)
-                    del tmp
-
-            cls._modules[device] = None
-
-        should_sync = False
-        for tensor_name, tensor in module.offloaded_tensors.items():
-            if not hasattr(module, tensor_name) or getattr(module, tensor_name).device != device:
-                module.register_buffer(tensor_name, tensor.to(device, non_blocking=True))
-                should_sync = True
-
-        if should_sync:
-            torch.cuda.synchronize()
-
-        cls._modules[device] = module
-
 
 def get_hook(threads_per_block, bytes_per_thread):
     """
@@ -135,8 +111,14 @@ def get_hook(threads_per_block, bytes_per_thread):
 
     def decode_hook(module, _):
         device = module.luts.device
+
+        # Load offloaded tensors to GPU if not already there
         if hasattr(module, 'offloaded_tensors'):
-            TensorManager.onload(module, device)
+            for tensor_name, tensor in module.offloaded_tensors.items():
+                if not (
+                    hasattr(module, tensor_name) and (getattr(module, tensor_name).device == device)
+                ):
+                    module.register_buffer(tensor_name, tensor.to(device, non_blocking=True))
 
         # Get dimensions for tensor reconstruction
         n_elements = module.sign_mantissa.numel()
@@ -176,6 +158,14 @@ def get_hook(threads_per_block, bytes_per_thread):
             for sub_module, weight in zip(module.weight_injection_modules, weights):
                 sub_module.weight = weight.view(sub_module.out_features, sub_module.in_features)
 
+        # Delete tensors from GPU if offloading is enabled
+        if hasattr(module, 'offloaded_tensors'):
+            for tensor_name in module.offloaded_tensors.keys():
+                if hasattr(module, tensor_name):
+                    tmp = getattr(module, tensor_name)
+                    delattr(module, tensor_name)
+                    del tmp
+
     return decode_hook
 
 
@@ -198,7 +188,14 @@ def load_and_replace_tensors(model, directory_path, dfloat11_config, cpu_offload
     
     # Get all .safetensors files in the directory
     safetensors_files = [f for f in os.listdir(directory_path) if f.endswith('.safetensors')]
-    for file_name in tqdm(safetensors_files, desc=f'Loading DFloat11 safetensors{" (offloaded to CPU)" if cpu_offload else ""}'):
+    loading_desc = 'Loading DFloat11 safetensors'
+    if cpu_offload:
+        loading_desc += ' (offloaded to CPU'
+        if pin_memory:
+            loading_desc += ', memory pinned'
+        loading_desc += ')'
+
+    for file_name in tqdm(safetensors_files, desc=loading_desc):
         file_path = os.path.join(directory_path, file_name)
         
         # Load the tensors from the file
@@ -239,13 +236,13 @@ def load_and_replace_tensors(model, directory_path, dfloat11_config, cpu_offload
                     if parts[-1] == 'split_positions':
                         setattr(module, 'split_positions', tensor_value.tolist())
                     else:
-                        # Register the buffer to the found module
                         if cpu_offload and parts[-1] in offloaded_tensor_names:
                             if not hasattr(module, 'offloaded_tensors'):
                                 setattr(module, 'offloaded_tensors', {})
 
                             module.offloaded_tensors[parts[-1]] = tensor_value.pin_memory() if pin_memory else tensor_value
                         else:
+                            # Register the buffer to the found module
                             module.register_buffer(parts[-1], tensor_value)
 
                     # Set up decompression for encoded weights
@@ -383,7 +380,7 @@ class DFloat11Model:
         dfloat11_config = config.dfloat11_config
 
         # Load compressed weights and configure decompression
-        load_and_replace_tensors(model, dfloat11_model_path, dfloat11_config, cpu_offload=cpu_offload)
+        load_and_replace_tensors(model, dfloat11_model_path, dfloat11_config, cpu_offload=cpu_offload, pin_memory=pin_memory)
 
         if not cpu_offload:
             # Calculate and report model size

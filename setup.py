@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='dfloat11',
-    version='0.3.0',
-    description='GPU inference for losslessly compressed (DFloat11) Large Language Models',
+    version='0.3.1',
+    description='DFloat11: Fast and memory-efficient GPU inference for losslessly compressed LLMs and diffusion models',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Tianyi Zhang',

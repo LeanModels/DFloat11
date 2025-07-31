@@ -8,7 +8,8 @@
 
 ## 📰 News
 - [07/29/2025] Efficient CPU Offloading Now Supported!
-  * Our latest update enables highly memory-efficient inference by keeping only one transformer block in GPU memory at a time.
+  * Our latest update enables highly memory-efficient inference by keeping only one transformer block in GPU memory at a time. For example, CPU offloading reduces peak GPU memory for inference of **FLUX.1-Krea-dev from 17.5 to 9.8 GB, Qwen3-8B from 12.4 to 2.3 GB, and HiDream-I1-Full from 26.4 to 9.6 GB**.
+  * An example of using CPU offloading with FLUX.1-Krea-dev-DF11 can be found [here](https://huggingface.co/DFloat11/FLUX.1-Krea-dev-DF11).
   * To enable CPU offloading, simply set `cpu_offload=True` when calling `DFloat11Model.from_pretrained(...)`.
 - [05/23/2025] **Wan2.1** support is now live! [`DFloat11/Wan2.1-T2V-14B-Diffusers-DF11`](https://huggingface.co/DFloat11/Wan2.1-T2V-14B-Diffusers-DF11)
   * Text-to-video generation with DFloat11 *Wan2.1 14B* using only 24GB VRAM!
