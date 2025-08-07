@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='dfloat11',
-    version='0.3.1',
+    version='0.3.2',
     description='DFloat11: Fast and memory-efficient GPU inference for losslessly compressed LLMs and diffusion models',
     long_description=long_description,
     long_description_content_type='text/markdown',

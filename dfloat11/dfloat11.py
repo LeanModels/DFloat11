@@ -169,7 +169,7 @@ def get_hook(threads_per_block, bytes_per_thread):
     return decode_hook
 
 
-def load_and_replace_tensors(model, directory_path, dfloat11_config, cpu_offload=False, pin_memory=True):
+def load_and_replace_tensors(model, directory_path, dfloat11_config, cpu_offload=False, cpu_offload_blocks=None, pin_memory=True):
     """
     Loads DFloat11 compressed weights from safetensors files and configures the model
     to use them with on-the-fly decompression.
@@ -236,11 +236,14 @@ def load_and_replace_tensors(model, directory_path, dfloat11_config, cpu_offload
                     if parts[-1] == 'split_positions':
                         setattr(module, 'split_positions', tensor_value.tolist())
                     else:
-                        if cpu_offload and parts[-1] in offloaded_tensor_names:
+                        if cpu_offload and (cpu_offload_blocks is None or cpu_offload_blocks > 0) and parts[-1] in offloaded_tensor_names:
                             if not hasattr(module, 'offloaded_tensors'):
                                 setattr(module, 'offloaded_tensors', {})
 
                             module.offloaded_tensors[parts[-1]] = tensor_value.pin_memory() if pin_memory else tensor_value
+
+                            if (cpu_offload_blocks is not None) and (cpu_offload_blocks > 0) and (len(module.offloaded_tensors) == len(offloaded_tensor_names)):
+                                cpu_offload_blocks -= 1
                         else:
                             # Register the buffer to the found module
                             module.register_buffer(parts[-1], tensor_value)
@@ -328,6 +331,7 @@ class DFloat11Model:
         max_memory: Optional[Dict[Union[int, str], Union[int, str]]] = None,
         bfloat16_model = None,
         cpu_offload: bool = False,
+        cpu_offload_blocks: Optional[int] = None,
         pin_memory: bool = True,
         **kwargs,
     ):
@@ -341,6 +345,7 @@ class DFloat11Model:
             max_memory: Maximum memory allocation per device
             bfloat16_model: Optional pre-initialized model to load weights into
             cpu_offload: Enables CPU offloading; only keeps a single block of weights in GPU at once
+            cpu_offload_blocks: Number of transformer blocks to offload to CPU; if None, offload all blocks
             pin_memory: Enables memory-pinning/page-locking when using CPU offloading
             **kwargs: Additional arguments passed to AutoModelForCausalLM.from_config
             
@@ -380,7 +385,10 @@ class DFloat11Model:
         dfloat11_config = config.dfloat11_config
 
         # Load compressed weights and configure decompression
-        load_and_replace_tensors(model, dfloat11_model_path, dfloat11_config, cpu_offload=cpu_offload, pin_memory=pin_memory)
+        load_and_replace_tensors(
+            model, dfloat11_model_path, dfloat11_config,
+            cpu_offload=cpu_offload, cpu_offload_blocks=cpu_offload_blocks, pin_memory=pin_memory,
+        )
 
         if not cpu_offload:
             # Calculate and report model size
