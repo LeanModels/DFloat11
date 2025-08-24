@@ -7,6 +7,9 @@
 **DFloat11** is a lossless compression framework that reduces the size of Large Language Models (LLMs) by approximately **30%** while preserving **bit-for-bit identical outputs** to the original model. It enables efficient GPU inference on resource-constrained hardware without sacrificing accuracy.
 
 ## 📰 News
+- [08/24/2025] Compression code released!
+  * Reduce the size of any model by 30% with DFloat11 compression.
+  * Get started here: [examples/compress_flux1](https://github.com/LeanModels/DFloat11/tree/master/examples/compress_flux1).
 - [07/29/2025] Efficient CPU Offloading Now Supported!
   * Our latest update enables highly memory-efficient inference by keeping only one transformer block in GPU memory at a time. For example, CPU offloading reduces peak GPU memory for inference of **FLUX.1-Krea-dev from 17.5 to 9.8 GB, Qwen3-8B from 12.4 to 2.3 GB, and HiDream-I1-Full from 26.4 to 9.6 GB**.
   * An example of using CPU offloading with FLUX.1-Krea-dev-DF11 can be found [here](https://huggingface.co/DFloat11/FLUX.1-Krea-dev-DF11).
@@ -144,6 +147,12 @@ The script prints:
   model = DFloat11Model.from_pretrained(model_path, device_map="auto")
   tokenizer = AutoTokenizer.from_pretrained(model_path)
   ```
+
+## 🗜️ Compressing Models (BFloat16 → DFloat11)
+
+The DFloat11 compression utility is exposed via the `compress_model` function.
+
+Check [examples/compress_flux1](https://github.com/LeanModels/DFloat11/tree/master/examples/compress_flux1) for a detailed example on compressing the FLUX.1 model.
 
 ## 🔗 Links
 
