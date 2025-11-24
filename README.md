@@ -1,12 +1,13 @@
-# DFloat11: Lossless LLM Compression for Efficient GPU Inference
+# DFloat11: Lossless Compression of LLMs and Diffusion Models for Efficient GPU Inference
 
 [![PyPI version](https://img.shields.io/pypi/v/dfloat11.svg?color=blue)](https://pypi.org/project/dfloat11/)
 [![arXiv](https://img.shields.io/badge/arXiv-2504.11651-b31b1b.svg)](https://arxiv.org/abs/2504.11651)
 [![Hugging Face](https://img.shields.io/badge/Model-%F0%9F%A4%97-yellow.svg)](https://huggingface.co/DFloat11)
 
-**DFloat11** is a lossless compression framework that reduces the size of Large Language Models (LLMs) by approximately **30%** while preserving **bit-for-bit identical outputs** to the original model. It enables efficient GPU inference on resource-constrained hardware without sacrificing accuracy.
+**DFloat11** is a lossless compression framework that reduces the size of Large Language Models (LLMs) and diffusion models (e.g. FLUX.1, Qwen-Image, etc.) by approximately **30%** while preserving **bit-for-bit identical outputs** to the original model. It enables efficient GPU inference on resource-constrained hardware without sacrificing any accuracy.
 
 ## 📰 News
+- [09/18/2025] Our research paper is accepted to NeurIPS 2025! Hope to see you at the San Diego Convention Center in December!
 - [08/24/2025] Compression code released!
   * Reduce the size of any model by 30% with DFloat11 compression.
   * Get started here: [examples/compress_flux1](https://github.com/LeanModels/DFloat11/tree/master/examples/compress_flux1).
@@ -28,12 +29,17 @@
 
 ## 📦 Installation
 
-Requires a CUDA-compatible GPU and [PyTorch](https://pytorch.org/get-started/locally/) installed.
+Requires a CUDA-compatible GPU (with CUDA 12) and [PyTorch](https://pytorch.org/get-started/locally/) installed.
 
+To install from PyPI:
 ```bash
 pip install -U dfloat11[cuda12]
-# or if you have CUDA version 11:
-# pip install -U dfloat11[cuda11]
+```
+
+[Optional] To compile the GPU kernel and install locally:
+```bash
+nvcc -O3 -ptx dfloat11/decode.cu -o dfloat11/decode.ptx
+pip install .[cuda12]
 ```
 
 ## 🔍 How It Works
@@ -171,10 +177,12 @@ The GPU kernel was designed and implemented by [Tianyi Zhang](https://github.com
 If you found our work useful or interesting, please consider citing our paper:
 
 ```bibtex
-@article{zhang2025dfloat11,
-  title={70\% Size, 100\% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float},
-  author={Zhang, Tianyi and Sui, Yang and Zhong, Shaochen and Chaudhary, Vipin and Hu, Xia and Shrivastava, Anshumali},
-  journal={arXiv preprint arXiv:2504.11651},
-  year={2025}
+@inproceedings{
+  zhang2025,
+  title={70\% Size, 100\% Accuracy: Lossless {LLM} Compression for Efficient {GPU} Inference via Dynamic-Length Float ({DF}loat11)},
+  author={Tianyi Zhang and Mohsen Hariri and Shaochen Zhong and Vipin Chaudhary and Yang Sui and Xia Hu and Anshumali Shrivastava},
+  booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+  year={2025},
+  url={https://openreview.net/forum?id=xdNAVP7TGy}
 }
 ```
