@@ -1,5 +1,10 @@
 # DFloat11: Lossless Compression of LLMs and Diffusion Models for Efficient GPU Inference
 
+> **This branch (`fix/transformers-compat`) of a fork:** the changes on it, on top of
+> LeanModels/DFloat11, are AI-built and human-directed: Claude Code (Anthropic) did most
+> of the coding, debugging and test runs; the fork's owner chose what to build and
+> measure. The rest of this repository is LeanModels' original work.
+
 [![PyPI version](https://img.shields.io/pypi/v/dfloat11.svg?color=blue)](https://pypi.org/project/dfloat11/)
 [![arXiv](https://img.shields.io/badge/arXiv-2504.11651-b31b1b.svg)](https://arxiv.org/abs/2504.11651)
 [![Hugging Face](https://img.shields.io/badge/Model-%F0%9F%A4%97-yellow.svg)](https://huggingface.co/DFloat11)
