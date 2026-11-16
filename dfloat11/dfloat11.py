@@ -32,7 +32,9 @@ from accelerate.utils import get_balanced_memory
 from huggingface_hub import snapshot_download
 from safetensors.torch import load_file, save_file
 
-from .dfloat11_utils import get_codec, get_32bit_codec, get_luts, encode_weights
+from .dfloat11_utils import (
+    get_codec, get_32bit_codec, get_luts, encode_weights, get_decode_tables, get_decode_shared_mem_size,
+)
 
 
 # Load CUDA kernel for custom DFloat11 tensor decoding
@@ -127,6 +129,11 @@ def get_hook(threads_per_block, bytes_per_thread):
                 ):
                     module.register_buffer(tensor_name, tensor.to(device, non_blocking=True))
 
+        # Derived lookup tables are normally built at load time; build them here if this module
+        # received its `luts` some other way
+        if not hasattr(module, 'decode_tables'):
+            module.register_buffer('decode_tables', get_decode_tables(module.luts.cpu()).to(device), persistent=False)
+
         # Get dimensions for tensor reconstruction
         n_elements = module.sign_mantissa.numel()
         n_bytes = module.encoded_exponent.numel()
@@ -142,6 +149,7 @@ def get_hook(threads_per_block, bytes_per_thread):
         with cp.cuda.Device(device.index):
             _decode(grid=blocks_per_grid, block=threads_per_block, shared_mem=module.shared_mem_size, args=[
                 module.luts.data_ptr(),
+                module.decode_tables.data_ptr(),
                 module.encoded_exponent.data_ptr(),
                 module.sign_mantissa.data_ptr(),
                 module.output_positions.data_ptr(),
@@ -265,6 +273,10 @@ def load_and_replace_tensors(
                             # Register the buffer to the found module
                             module.register_buffer(parts[-1], tensor_value)
 
+                        if parts[-1] == 'luts':
+                            # Derived lookup tables for the decode kernel; rebuilt at every load, never saved
+                            module.register_buffer('decode_tables', get_decode_tables(tensor_value), persistent=False)
+
                     # Set up decompression for encoded weights
                     if parts[-1] == 'encoded_exponent':
                         # Register the decode hook to decompress weights during forward pass
@@ -298,12 +310,7 @@ def load_and_replace_tensors(
                                         module.weight_injection_modules.append(target)
                     elif parts[-1] == 'output_positions':
                         # Calculate required shared memory size for CUDA kernel
-                        output_positions_np = tensor_value.view(torch.uint32).numpy()
-                        setattr(
-                            module,
-                            'shared_mem_size',
-                            threads_per_block[0] * 4 + 4 + (output_positions_np[1:] - output_positions_np[:-1]).max().item() * 2
-                        )
+                        setattr(module, 'shared_mem_size', get_decode_shared_mem_size(tensor_value))
     
     return model
 
@@ -564,18 +571,20 @@ def compress_model(
                     n_elements = other_8bits.numel()
                     n_bytes = encoded.numel()
 
-                    cuda_luts, cuda_encoded, cuda_other_8bits, cuda_output_positions, cuda_gaps = list(map(lambda x: x.to(device), [luts, encoded, other_8bits, output_positions, gaps]))
+                    cuda_luts, cuda_decode_tables, cuda_encoded, cuda_other_8bits, cuda_output_positions, cuda_gaps = list(map(
+                        lambda x: x.to(device), [luts, get_decode_tables(luts), encoded, other_8bits, output_positions, gaps]
+                    ))
                     cuda_outputs = torch.empty(n_elements, dtype=torch.bfloat16, device=device)
 
                     blocks_per_grid = (int(np.ceil(n_bytes / (threads_per_block[0] * bytes_per_thread))), )
 
-                    output_positions_np = output_positions.view(torch.uint32).numpy()
-                    shared_mem_size = threads_per_block[0] * 4 + 4 + (output_positions_np[1:] - output_positions_np[:-1]).max().item() * 2
+                    shared_mem_size = get_decode_shared_mem_size(output_positions)
                     print(f'Using {shared_mem_size} bytes of shared memory.')
 
                     with cp.cuda.Device(device.index):
                         _decode(grid=blocks_per_grid, block=threads_per_block, shared_mem=shared_mem_size, args=[
                             cuda_luts.data_ptr(),
+                            cuda_decode_tables.data_ptr(),
                             cuda_encoded.data_ptr(),
                             cuda_other_8bits.data_ptr(),
                             cuda_output_positions.data_ptr(),

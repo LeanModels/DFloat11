@@ -115,6 +115,67 @@ def get_luts(table):
     )
 
 
+def get_decode_tables(luts):
+    """
+    Derive the two 256-entry lookup tables the decode kernel keeps in shared
+    memory. They depend only on `luts`, so they are computed once per tensor
+    at load time and are not stored in model files.
+
+    Both are indexed by the next 8 bits of the stream:
+      short_lens[b]   length of the code starting with b, or 0 if it is longer than 8 bits
+      multi_counts[b] (number of codes lying entirely inside b) << 4 | bits they use,
+                      or 0 if the first code is longer than 8 bits
+
+    Returns a uint8 tensor of 512 bytes: short_lens followed by multi_counts.
+    """
+    luts = np.asarray(luts.numpy() if isinstance(luts, torch.Tensor) else luts)
+    first = luts[0].astype(np.int64)
+    lens = luts[-1].astype(np.int64)
+
+    # Values >= 240 are pointers to the next table: the code is longer than 8 bits.
+    short = np.where(first >= 240, 0, lens[np.minimum(first, 255)])
+    short = np.where(short <= 8, short, 0)
+
+    # Only the first code in a byte is looked up with real stream bits; the following ones are
+    # looked up with zero padding. That is only safe when the padded byte really starts with
+    # that code, i.e. the symbol's entries in the first table are exactly its own aligned block
+    # of 2^(8 - length) bytes. Bytes of the table that no symbol owns (e.g. a short EOF code)
+    # are filled with a neighbouring symbol, which makes that symbol's run longer than its block.
+    exact = np.zeros(256, np.int64)
+    for b in range(256):
+        length = short[b]
+        if length > 0:
+            mask = (1 << (8 - length)) - 1
+            lo, hi = b & ~mask, b | mask
+            if (first[lo] == first[b] and first[hi] == first[b]
+                    and (lo == 0 or first[lo - 1] != first[b])
+                    and (hi == 255 or first[hi + 1] != first[b])):
+                exact[b] = length
+
+    multi = np.zeros(256, np.int64)
+    for b in range(256):
+        used = count = 0
+        while used < 8:
+            length = (short if count == 0 else exact)[(b << used) & 0xFF]
+            if length == 0 or used + length > 8:
+                break
+            used += length
+            count += 1
+        multi[b] = (count << 4) | used
+
+    return torch.from_numpy(np.concatenate([short, multi]).astype(np.uint8))
+
+
+def get_decode_shared_mem_size(output_positions):
+    """Dynamic shared memory (bytes) the decode kernel needs for these output positions."""
+    positions = np.asarray(
+        output_positions.view(torch.uint32).numpy() if isinstance(output_positions, torch.Tensor)
+        else output_positions
+    ).astype(np.int64)
+    # 640 = DECODE_SMEM_FIXED in decode.cu; + 8 for aligning the exponent buffer.
+    return 640 + int((positions[1:] - positions[:-1]).max()) + 8
+
+
 def encode(data, codec, bytes_per_thread, threads_per_block):
     encoded = []
 

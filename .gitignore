@@ -5,3 +5,6 @@ dist/
 build/
 .env
 .venv
+
+# Test data and compiled-kernel cache
+tests/.cache/
